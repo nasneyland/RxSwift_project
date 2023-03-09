@@ -17,6 +17,8 @@ class ViewController: UIViewController {
     @IBOutlet var timerLabel: UILabel!
     @IBOutlet var editView: UITextView!
     @IBOutlet var activityIndicator: UIActivityIndicatorView!
+    
+    var disposable = DisposeBag()
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -67,7 +69,7 @@ class ViewController: UIViewController {
 //        }
 //    }
     
-    // MARK: 방법 2 - escaping closure
+    // MARK: 방법 2 - Observable
     
     // Observable = 나중에생기는데이터
     // 나중에 데이터가 생기면 리턴값을 넘겨준다.
@@ -96,35 +98,54 @@ class ViewController: UIViewController {
             .subscribe { event in
                 switch event {
                 case .next(let json) :
-                    self.editView.text = json
-                    self.setVisibleWithAnimation(self.activityIndicator, false)
+                    print(json)
+//                    self.editView.text = json
+//                    self.setVisibleWithAnimation(self.activityIndicator, false)
                 case .completed:
                     break
                 case .error(_):
                     break
             }
         }
+            .disposed(by: disposable)
         
         // 번외 : 해당 코드를 강제로 중지시키는 방법
 //        let disposable = downloadJson(MEMBER_LIST_URL)
 //            .subscribe {}
-//        disposable.dispose()
+////        disposable.dispose()
+//        self.disposable.insert(disposable)
         
         // 번외 : 순환참조 문제를 해결하는 방법
         // 1. 클로저에 [weak self] 로 event 선언 -> self?
         // 2. f.onNext 선언 후 f.completed로 클로저 닫아주기
         
+        
         simpleObservable("najin")
-            .subscribe { event in
-                switch event {
-                case .next(let result):
-                    print(result)
-                case .completed:
-                    break
-                case .error:
-                    break
-                }
-            }
+//            .subscribe { event in
+//                switch event {
+//                case .next(let result):
+//                    print(result)
+//                case .completed:
+//                    break
+//                case .error:
+//                    break
+//                }
+//            }
+            .observeOn(MainScheduler.instance) // 쓰레드를 바꾸는 operator
+            // 출력 축약형 (셋 중 원하는 클로저만 진행)
+            .subscribe(onNext: {print($0)},
+                       onError: {print($0)},
+                       onCompleted: {print("complete")})
+        
+        // Observable 데이터를 리턴받을 때 쓸 수 있는 operater 이 많이 있다. (map, filter 등등 엄청 많음)
+        let jsonObservable = downloadJson(MEMBER_LIST_URL)
+        let helloObservable = Observable.just("hello")
+        Observable.zip(jsonObservable, helloObservable) {$1 + "\n" + $0!}
+            .observeOn(MainScheduler.instance)
+            .subscribe(onNext: { json in
+                self.editView.text = json
+                self.setVisibleWithAnimation(self.activityIndicator, false)
+            })
     }
     
     // Observable의 생명주기
@@ -134,9 +155,14 @@ class ViewController: UIViewController {
             obs.onNext("Hello")
             obs.onNext("Im \(name)")
             obs.onCompleted() // 클로저 닫기
-            
+
             return Disposables.create()
         }
+        
+        // 위 코드의 축약형 리턴 (just) - 하나만 전달할 때
+        return Observable.just("Hello Im \(name)")
+        // 위 코드의 축약형 리턴 (from) - 여러개 전달할 때
+        return Observable.from(["Hello","Im \(name)"])
     }
 }
 
