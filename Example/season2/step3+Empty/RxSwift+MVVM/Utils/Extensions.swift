@@ -9,6 +9,7 @@
 import Foundation
 
 extension Int {
+    // Int에 통화형식 컴마 찍기
     func currencyKR() -> String {
         let formatter = NumberFormatter()
         formatter.numberStyle = .currency

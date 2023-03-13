@@ -28,15 +28,16 @@ class ViewController: UITableViewController {
         super.viewDidLoad()
 
         loadMembers()
-            .observeOn(MainScheduler.instance)
+            .observeOn(MainScheduler.instance) // 메인 스레드에서 동작
             .subscribe(onNext: { [weak self] members in
                 self?.data = members
                 self?.tableView.reloadData()
-            })
-            .disposed(by: disposeBag)
+            }) // 데이터 받은 후 동작해야되는 코드
+            .disposed(by: disposeBag) // 종료
     }
 
     func loadMembers() -> Observable<[Member]> {
+        // 데이터 받아오기
         return Observable.create { emitter in
             let task = URLSession.shared.dataTask(with: URL(string: MEMBER_LIST_URL)!) { data, _, error in
                 if let error = error {
@@ -49,8 +50,8 @@ class ViewController: UITableViewController {
                     return
                 }
 
-                emitter.onNext(members)
-                emitter.onCompleted()
+                emitter.onNext(members) // 성공 데이터
+                emitter.onCompleted() // 완료
             }
             task.resume()
             return Disposables.create {
