@@ -12,13 +12,32 @@ import RxSwift
 class MenuListViewModel {
     
     init() {
-        let menus: [Menu] = [
-            Menu(name: "튀김1", price: 100, count: 0),
-            Menu(name: "튀김2", price: 100, count: 0),
-            Menu(name: "튀김3", price: 100, count: 0)
-        ]
+        // 더미 데이터
+//        let menus: [Menu] = [
+//            Menu(id: 0, name: "튀김1", price: 100, count: 0),
+//            Menu(id: 1, name: "튀김2", price: 100, count: 0),
+//            Menu(id: 2, name: "튀김3", price: 100, count: 0)
+//        ]
         
-        menuObservable.onNext(menus)
+        _ = APIService.fetchAllMenusRx()
+            .map { data -> [MenuItem] in
+                struct Response: Decodable {
+                    let menus: [MenuItem]
+                }
+                let response = try! JSONDecoder().decode(Response.self, from: data)
+                
+                return response.menus
+            }
+            .map { menuItems -> [Menu] in
+                var menus: [Menu] = []
+                menuItems.enumerated().forEach { (index, item) in
+                    let menu = Menu.fromMenuItems(id: index, item: item)
+                    menus.append(menu)
+                }
+                return menus
+            }
+            .take(1)
+            .bind(to: menuObservable)
     }
     
     //totalPrice 선언 변천사
@@ -40,5 +59,35 @@ class MenuListViewModel {
     }
     lazy var itemsCount = menuObservable.map {
         $0.map { $0.count }.reduce(0,+)
+    }
+    
+    func clearAllItemSelections() {
+        _ = menuObservable
+            .map { menus in
+                menus.map {
+                    Menu(id: $0.id, name: $0.name, price: $0.price, count: 0)
+                }
+            }
+            .take(1) // 1번만 실행하도록 선언
+            .subscribe(onNext: {
+                self.menuObservable.onNext($0)
+            })
+    }
+    
+    func changeCount(item: Menu, increase: Int) {
+        _ = menuObservable
+            .map { menus in
+                menus.map { m in
+                    if m.id == item.id {
+                        return Menu(id: m.id, name: m.name, price: m.price, count: max(m.count + increase, 0))
+                    } else {
+                        return m
+                    }
+                }
+            }
+            .take(1) // 1번만 실행하도록 선언
+            .subscribe(onNext: {
+                self.menuObservable.onNext($0)
+            })
     }
 }
